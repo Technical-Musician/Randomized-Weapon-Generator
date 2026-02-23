@@ -233,6 +233,40 @@
         .tab-content.active {
             display: block;
         }
+        
+        .visualization-tabs {
+            display: flex;
+            border-bottom: 1px solid #444;
+            margin-bottom: 20px;
+        }
+        
+        .vis-tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background: linear-gradient(to bottom, #3a4a5a 0%, #2a3a4a 100%);
+            border-radius: 5px 5px 0 0;
+            margin-right: 5px;
+            border: 1px solid #5a6a7a;
+            color: #e0dcc5;
+        }
+        
+        .vis-tab.active {
+            background: linear-gradient(to bottom, #4a5a6a 0%, #3a4a5a 100%);
+            border-bottom: 2px solid #6a8a6a;
+        }
+        
+        .visualization-content {
+            display: none;
+            padding: 20px;
+            background: linear-gradient(to bottom, #2a3a4a 0%, #1a2a3a 100%);
+            border-radius: 0 0 5px 5px;
+            border: 1px solid #4a5a6a;
+            border-top: none;
+        }
+        
+        .visualization-content.active {
+            display: block;
+        }
 
         .export-options {
             display: flex;
@@ -328,6 +362,7 @@
             <div class="tab active" onclick="switchTab('history')">Generation History</div>
             <div class="tab" onclick="switchTab('export')">Export Options</div>
             <div class="tab" onclick="switchTab('settings')">Generator Settings</div>
+            <div class="tab" onclick="switchTab('visualizations')">Visualizations</div>
         </div>
         
         <div id="history-tab" class="tab-content active">
@@ -362,6 +397,20 @@
                 <input type="range" id="detailLevel" min="1" max="5" value="3">
                 Detail Level: <span id="detailLevelValue">3</span>
             </label>
+        </div>
+        
+        <div id="visualizations-tab" class="tab-content">
+            <h3>Weapon Visualizations</h3>
+            <div class="visualization-tabs">
+                <div class="vis-tab active" onclick="switchVisualizationTab('ammo')">Ammo Visualization</div>
+                <div class="vis-tab" onclick="switchVisualizationTab('weapon')">Weapon Visualization</div>
+            </div>
+            <div id="ammo-visualization" class="visualization-content active">
+                <canvas id="ammoCanvas" width="400" height="300" style="border: 1px solid #5a6a7a; background: #1a251e; border-radius: 5px;"></canvas>
+            </div>
+            <div id="weapon-visualization" class="visualization-content">
+                <canvas id="weaponCanvas" width="400" height="300" style="border: 1px solid #5a6a7a; background: #1a251e; border-radius: 5px;"></canvas>
+            </div>
         </div>
     </div>
 
@@ -541,9 +590,82 @@
         // Function to generate random caliber based on weapon class
         function generateCaliber(classType) {
             const limits = caliberLimits[classType];
-            const width = getRandomInRange(limits.minWidth, limits.maxWidth, 2);
+            // Generate width that always ends in an even hundredth (x.32, x.34, x.36, etc.)
+            const range = limits.maxWidth - limits.minWidth;
+            // Generate a random value that's a multiple of 0.02 (to ensure even hundredths)
+            const steps = Math.floor(range / 0.02);
+            const width = (Math.floor(Math.random() * (steps + 1)) * 0.02 + limits.minWidth).toFixed(2);
             const length = Math.floor(Math.random() * (limits.maxLength - limits.minLength) + limits.minLength);
             return `${width}x${length}mm`;
+        }
+
+        // Function to calculate bullet weight in grains based on caliber dimensions
+        function calculateBulletWeight(caliber) {
+            // Parse caliber to get width (diameter) and length
+            const parts = caliber.split('x');
+            const diameterMM = parseFloat(parts[0]);
+            const lengthMM = parseInt(parts[1].replace('mm', ''));
+            
+            // Calculate volume assuming cylindrical shape (in mm^3)
+            const radius = diameterMM / 2;
+            const volumeMM3 = Math.PI * radius * radius * lengthMM;
+            
+            // Convert to cubic inches since density is in lbs/in^3
+            const volumeIn3 = volumeMM3 / 16387.064;
+            
+            // Lead density in lbs/in^3 (standard for bullets)
+            const leadDensity = 0.409; // lbs/in^3
+            
+            // Calculate weight in pounds then convert to grains (1 lb = 7000 grains)
+            const weightGrains = (volumeIn3 * leadDensity) * 7000;
+            
+            // Return rounded to nearest 5 grains for realistic values
+            return Math.round(weightGrains / 5) * 5;
+        }
+
+        // Function to calculate muzzle velocity based on barrel length and bullet weight
+        function calculateMuzzleVelocity(caliber, barrelLength, bulletWeight) {
+            // Parse barrel length to get numeric value
+            const lengthValue = parseInt(barrelLength.replace(' inches', ''));
+            
+            // Base velocity factors based on caliber width (diameter)
+            const caliberParts = caliber.split('x');
+            const caliberWidth = parseFloat(caliberParts[0]);
+            
+            // Calculate base velocity based on caliber (larger calibers generally have higher energy)
+            // Using a formula that accounts for powder efficiency and caliber size
+            let baseVelocity;
+            if (caliberWidth <= 0.30) {
+                baseVelocity = 2800; // Smaller calibers like 5.56mm, .308
+            } else if (caliberWidth <= 0.45) {
+                baseVelocity = 2500; // Medium calibers like .45 ACP, 7.62mm
+            } else {
+                baseVelocity = 2200; // Larger calibers like .50 BMG, 12ga
+            }
+            
+            // Adjust velocity based on barrel length (longer barrels typically increase velocity)
+            // For every inch above 10 inches, increase velocity by ~50 fps for rifles
+            // For shorter barrels (like pistols), decrease velocity
+            let barrelEffect = (lengthValue - 10) * 50;
+            
+            // Apply different barrel effects based on weapon class (pistols vs rifles)
+            if (lengthValue < 6) {
+                barrelEffect = (lengthValue - 6) * 40; // Pistols with very short barrels
+            } else if (lengthValue < 12) {
+                barrelEffect = (lengthValue - 10) * 30; // Carbines/pistols
+            } else {
+                barrelEffect = (lengthValue - 10) * 50; // Rifles
+            }
+            
+            // Adjust for bullet weight (heavier bullets may have lower velocity)
+            // Using inverse relationship: heavier bullets might be slower
+            const weightFactor = 1 - ((bulletWeight - 150) / 500); // Adjust based on 150gr baseline
+            
+            // Calculate final velocity
+            const velocity = (baseVelocity + barrelEffect) * weightFactor;
+            
+            // Ensure minimum velocity (no negative or zero values)
+            return Math.max(800, Math.round(velocity));
         }
 
         // Function to generate magazine capacity
@@ -662,6 +784,32 @@
             // Add active class to the clicked tab
             event.target.classList.add('active');
         }
+        
+        // Function to switch between visualization tabs
+        function switchVisualizationTab(visTabName) {
+            // Hide all visualization contents
+            document.querySelectorAll('.visualization-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all visualization tabs
+            document.querySelectorAll('.vis-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show the selected visualization content
+            document.getElementById(`${visTabName}-visualization`).classList.add('active');
+            
+            // Add active class to the clicked visualization tab
+            event.target.classList.add('active');
+            
+            // Trigger the appropriate visualization function
+            if (visTabName === 'ammo') {
+                drawAmmoVisualization();
+            } else if (visTabName === 'weapon') {
+                drawWeaponVisualization();
+            }
+        }
 
         // Function to show export options
         function showExportOptions() {
@@ -682,6 +830,8 @@
             text += `FACTION: ${weaponData.faction}\n`;
             text += `RARITY: ${weaponData.rarity}\n`;
             text += `CALIBER: ${weaponData.caliber}\n`;
+            text += `BULLET WEIGHT: ${weaponData.bulletWeight} grains\n`;
+            text += `MUZZLE VELOCITY: ${weaponData.muzzleVelocity} fps\n`;
             text += `WEIGHT: ${weaponData.weight} kg\n`;
             text += `BARREL LENGTH: ${weaponData.barrelLength}\n`;
             text += `MAGAZINE CAPACITY: ${weaponData.magazineCapacity} rounds\n`;
@@ -831,13 +981,15 @@
             // Generate weapon attributes
             const name = customName || generateWeaponName(faction, weaponClass, rarity);
             const caliber = generateCaliber(weaponClass);
+            const bulletWeight = calculateBulletWeight(caliber);
+            const barrelLength = getRandomItem(barrelLengths[weaponClass]);
+            const muzzleVelocity = calculateMuzzleVelocity(caliber, barrelLength, bulletWeight);
             const magazineCapacity = generateMagazineCapacity(weaponClass);
             const weight = generateWeaponWeight(weaponClass);
             const effectiveRange = generateEffectiveRange(weaponClass);
             const attachmentMethod = getRandomItem(attachmentMethods[era]);
             const actionType = getRandomItem(actionTypes[weaponClass]);
             const fireRate = getRandomItem(fireRates[weaponClass]);
-            const barrelLength = getRandomItem(barrelLengths[weaponClass]);
             const feedingMechanism = getRandomItem(feedingMechanisms[weaponClass]);
             const furnitureMaterial = getRandomItem(furnitureMaterials[era]);
             const selectedFiringModes = getRandomItem(firingModes[era]);
@@ -858,6 +1010,8 @@
                 faction,
                 rarity,
                 caliber,
+                bulletWeight,
+                muzzleVelocity,
                 weight,
                 effectiveRange,
                 magazineCapacity,
@@ -907,6 +1061,14 @@
                         <div class="stat-item">
                             <div class="stat-label">Caliber</div>
                             <div class="stat-value">${weaponData.caliber}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Bullet Weight</div>
+                            <div class="stat-value">${weaponData.bulletWeight} grains</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Muzzle Velocity</div>
+                            <div class="stat-value">${weaponData.muzzleVelocity} fps</div>
                         </div>
                         <div class="stat-item">
                             <div class="stat-label">Weight</div>
@@ -968,6 +1130,404 @@
             // Initialize history display
             updateHistoryDisplay();
         };
+        
+        // Function to draw ammo visualization
+        function drawAmmoVisualization() {
+            const canvas = document.getElementById('ammoCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Get current weapon data if available
+            const weaponData = getCurrentWeaponData();
+            if (!weaponData) {
+                // Draw a sample ammo if no weapon data is available
+                drawSampleAmmo(ctx, canvas.width/2, canvas.height/2, 20, 40);
+                return;
+            }
+            
+            // Parse bullet dimensions from caliber
+            const caliberParts = weaponData.caliber.split('x');
+            let bulletDiameter = 5; // default value in mm
+            let bulletLength = 25; // default value in mm
+            
+            if (caliberParts.length === 2) {
+                // Extract numeric values from caliber string
+                bulletDiameter = parseFloat(caliberParts[0]);
+                bulletLength = parseFloat(caliberParts[1].replace('mm', ''));
+                
+                // Handle special cases like .308 Winchester (convert to metric)
+                if (weaponData.caliber.includes('.')) {
+                    // Convert inches to mm for common calibers
+                    if (weaponData.caliber.includes('.308')) {
+                        bulletDiameter = 7.62;
+                        bulletLength = 51;
+                    } else if (weaponData.caliber.includes('.45')) {
+                        bulletDiameter = 11.43;
+                        bulletLength = 23;
+                    } else if (weaponData.caliber.includes('.50')) {
+                        bulletDiameter = 12.7;
+                        bulletLength = 63;
+                    } else if (weaponData.caliber.includes('.22')) {
+                        bulletDiameter = 5.56;
+                        bulletLength = 15;
+                    } else if (weaponData.caliber.includes('.38')) {
+                        bulletDiameter = 9.1;
+                        bulletLength = 29;
+                    } else if (weaponData.caliber.includes('.357')) {
+                        bulletDiameter = 9.1;
+                        bulletLength = 33;
+                    } else if (weaponData.caliber.includes('.44')) {
+                        bulletDiameter = 10.9;
+                        bulletLength = 33;
+                    } else if (weaponData.caliber.includes('.338')) {
+                        bulletDiameter = 8.59;
+                        bulletLength = 69;
+                    } else if (weaponData.caliber.includes('.223')) {
+                        bulletDiameter = 5.56;
+                        bulletLength = 36;
+                    }
+                }
+            }
+            
+            // Calculate scaling factor to fit ammo in canvas
+            const maxDimension = Math.max(bulletDiameter, bulletLength);
+            const scale = Math.min(canvas.width * 0.8 / maxDimension, canvas.height * 0.8 / maxDimension);
+            
+            // Randomize casing dimensions
+            const casingLength = bulletLength * (0.8 + Math.random() * 0.4); // 80-120% of bullet length
+            const casingDiameter = bulletDiameter * (0.9 + Math.random() * 0.2); // 90-110% of bullet diameter
+            
+            // Calculate position to center the ammo
+            const x = canvas.width / 2;
+            const y = canvas.height / 2;
+            
+            // Draw ammo centered on the canvas
+            drawAmmo(ctx, x, y, bulletDiameter * scale, bulletLength * scale, casingDiameter * scale, casingLength * scale);
+        }
+        
+        // Function to draw a single ammo round
+        function drawAmmo(ctx, centerX, centerY, bulletDiameter, bulletLength, casingDiameter, casingLength) {
+            // Calculate positions
+            const totalLength = bulletLength + casingLength;
+            const startX = centerX - totalLength / 2;
+            const bulletX = startX;
+            const casingX = startX + bulletLength;
+            
+            // Draw casing (main body of cartridge)
+            ctx.fillStyle = '#deb887'; // Brass-like color
+            ctx.beginPath();
+            // Draw rectangle with rounded edges for casing
+            const radius = casingDiameter / 2;
+            ctx.moveTo(casingX, centerY - casingDiameter / 2);
+            ctx.lineTo(casingX + casingLength - radius, centerY - casingDiameter / 2);
+            ctx.arcTo(casingX + casingLength, centerY - casingDiameter / 2, 
+                      casingX + casingLength, centerY, 
+                      radius);
+            ctx.arcTo(casingX + casingLength, centerY + casingDiameter / 2, 
+                      casingX + casingLength - radius, centerY + casingDiameter / 2, 
+                      radius);
+            ctx.lineTo(casingX, centerY + casingDiameter / 2);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Draw bullet (front part)
+            ctx.fillStyle = '#a9a9a9'; // Lead-like color
+            ctx.beginPath();
+            // Draw bullet with rounded tip
+            ctx.moveTo(bulletX, centerY - bulletDiameter / 2);
+            ctx.lineTo(bulletX + bulletLength, centerY - bulletDiameter / 2);
+            ctx.arcTo(bulletX + bulletLength + radius, centerY, 
+                      bulletX + bulletLength, centerY + bulletDiameter / 2, 
+                      radius);
+            ctx.lineTo(bulletX, centerY + bulletDiameter / 2);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Draw rim (base of casing)
+            ctx.fillStyle = '#cd853f'; // Darker brass
+            ctx.beginPath();
+            ctx.arc(casingX + casingLength, centerY, casingDiameter * 0.6, -Math.PI/2, Math.PI/2);
+            ctx.fill();
+        }
+        
+        // Function to draw sample ammo for demonstration
+        function drawSampleAmmo(ctx, centerX, centerY, bulletDiameter, bulletLength) {
+            // Draw a representative ammo with default dimensions
+            const casingDiameter = bulletDiameter * 0.95;
+            const casingLength = bulletLength * 0.8;
+            
+            drawAmmo(ctx, centerX, centerY, bulletDiameter, bulletLength, casingDiameter, casingLength);
+        }
+        
+        // Function to draw weapon visualization
+        function drawWeaponVisualization() {
+            const canvas = document.getElementById('weaponCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Get current weapon data if available
+            const weaponData = getCurrentWeaponData();
+            if (!weaponData) {
+                // Draw a generic weapon silhouette if no weapon data is available
+                drawGenericWeaponSilhouette(ctx, canvas.width/2, canvas.height/2, canvas.width * 0.8, canvas.height * 0.6);
+                return;
+            }
+            
+            // Draw weapon based on class and characteristics
+            drawWeaponByClass(ctx, canvas.width/2, canvas.height/2, canvas.width * 0.8, canvas.height * 0.6, weaponData.class);
+        }
+        
+        // Function to draw weapon by class
+        function drawWeaponByClass(ctx, centerX, centerY, width, height, weaponClass) {
+            // Clear canvas
+            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            
+            // Different drawing patterns based on weapon class
+            switch(weaponClass) {
+                case 'Pistol':
+                    drawPistolSilhouette(ctx, centerX, centerY, width, height);
+                    break;
+                case 'SubmachineGun':
+                    drawSMGSilhouette(ctx, centerX, centerY, width, height);
+                    break;
+                case 'AssaultRifle':
+                    drawARSilhouette(ctx, centerX, centerY, width, height);
+                    break;
+                case 'SniperRifle':
+                    drawSniperSilhouette(ctx, centerX, centerY, width, height);
+                    break;
+                case 'Shotgun':
+                    drawShotgunSilhouette(ctx, centerX, centerY, width, height);
+                    break;
+                case 'LMG':
+                    drawLMGSilhouette(ctx, centerX, centerY, width, height);
+                    break;
+                case 'BattleRifle':
+                    drawBattleRifleSilhouette(ctx, centerX, centerY, width, height);
+                    break;
+                case 'DMR':
+                    drawDMRSilhouette(ctx, centerX, centerY, width, height);
+                    break;
+                case 'Carbine':
+                    drawCarbineSilhouette(ctx, centerX, centerY, width, height);
+                    break;
+                default:
+                    drawGenericWeaponSilhouette(ctx, centerX, centerY, width, height);
+            }
+        }
+        
+        // Generic weapon silhouette function
+        function drawGenericWeaponSilhouette(ctx, centerX, centerY, width, height) {
+            // Draw basic rifle shape
+            ctx.fillStyle = '#555';
+            ctx.fillRect(centerX - width/2, centerY - height/6, width, height/3); // Main body
+            
+            // Barrel
+            ctx.fillRect(centerX - width/2 + 20, centerY - height/12, width * 0.7, height/6); // Barrel
+            
+            // Stock
+            ctx.fillRect(centerX + width/2 - 30, centerY - height/6, 20, height/3); // Stock
+            
+            // Grip
+            ctx.fillRect(centerX - width/4, centerY + height/12, width/8, height/4); // Grip
+        }
+        
+        // Pistol silhouette
+        function drawPistolSilhouette(ctx, centerX, centerY, width, height) {
+            // Main frame
+            ctx.fillStyle = '#555';
+            ctx.fillRect(centerX - width/4, centerY - height/8, width/2, height/4);
+            
+            // Grip
+            ctx.fillRect(centerX - width/8, centerY, width/4, height/2);
+            
+            // Slide
+            ctx.fillStyle = '#666';
+            ctx.fillRect(centerX - width/4, centerY - height/10, width/2, height/5);
+            
+            // Barrel
+            ctx.fillStyle = '#444';
+            ctx.fillRect(centerX - width/4 + 10, centerY - height/12, width/3, height/6);
+        }
+        
+        // Submachine gun silhouette
+        function drawSMGSilhouette(ctx, centerX, centerY, width, height) {
+            // Main body
+            ctx.fillStyle = '#555';
+            ctx.fillRect(centerX - width/3, centerY - height/10, width * 0.6, height/5);
+            
+            // Grip
+            ctx.fillRect(centerX - width/8, centerY, width/4, height/3);
+            
+            // Stock
+            ctx.fillRect(centerX + width/3 - 15, centerY - height/8, 15, height/4);
+            
+            // Barrel
+            ctx.fillStyle = '#444';
+            ctx.fillRect(centerX - width/3 + 15, centerY - height/12, width * 0.4, height/6);
+            
+            // Magazine
+            ctx.fillStyle = '#666';
+            ctx.fillRect(centerX, centerY + height/10, width/10, height/4);
+        }
+        
+        // Assault rifle silhouette
+        function drawARSilhouette(ctx, centerX, centerY, width, height) {
+            // Main receiver
+            ctx.fillStyle = '#555';
+            ctx.fillRect(centerX - width/3, centerY - height/12, width * 0.8, height/6);
+            
+            // Barrel
+            ctx.fillRect(centerX - width/3 + 20, centerY - height/10, width * 0.6, height/5);
+            
+            // Stock
+            ctx.fillRect(centerX + width/3 - 20, centerY - height/8, 20, height/4);
+            
+            // Grip
+            ctx.fillRect(centerX - width/6, centerY, width/8, height/3);
+            
+            // Handguard
+            ctx.fillStyle = '#666';
+            ctx.fillRect(centerX - width/4, centerY - height/8, width/2, height/4);
+            
+            // Magazine
+            ctx.fillStyle = '#777';
+            ctx.fillRect(centerX, centerY + height/10, width/12, height/3);
+        }
+        
+        // Sniper rifle silhouette
+        function drawSniperSilhouette(ctx, centerX, centerY, width, height) {
+            // Stock
+            ctx.fillStyle = '#555';
+            ctx.fillRect(centerX - width/4, centerY, width/2, height/8);
+            ctx.fillRect(centerX, centerY - height/4, width/10, height/2);
+            
+            // Barrel
+            ctx.fillStyle = '#444';
+            ctx.fillRect(centerX - width/2 + 30, centerY - height/20, width * 0.8, height/10);
+            
+            // Receiver
+            ctx.fillRect(centerX - width/6, centerY - height/10, width/3, height/5);
+            
+            // Scope
+            ctx.fillStyle = '#666';
+            ctx.fillRect(centerX - width/5, centerY - height/8, width/2.5, height/20);
+        }
+        
+        // Shotgun silhouette
+        function drawShotgunSilhouette(ctx, centerX, centerY, width, height) {
+            // Main receiver
+            ctx.fillStyle = '#555';
+            ctx.fillRect(centerX - width/3, centerY - height/15, width * 0.7, height/7);
+            
+            // Barrel
+            ctx.fillRect(centerX - width/3 + 20, centerY - height/12, width * 0.6, height/6);
+            
+            // Stock
+            ctx.fillRect(centerX + width/4 - 15, centerY - height/6, 15, height/3);
+            
+            // Grip
+            ctx.fillRect(centerX - width/8, centerY, width/6, height/3);
+            
+            // Pump action
+            ctx.fillStyle = '#666';
+            ctx.fillRect(centerX - width/6, centerY + height/15, width/3, height/10);
+        }
+        
+        // Light machine gun silhouette
+        function drawLMGSilhouette(ctx, centerX, centerY, width, height) {
+            // Main receiver
+            ctx.fillStyle = '#555';
+            ctx.fillRect(centerX - width/3, centerY - height/12, width * 0.8, height/6);
+            
+            // Barrel (heavier than rifle)
+            ctx.fillRect(centerX - width/3 + 20, centerY - height/10, width * 0.6, height/5);
+            
+            // Bipod
+            ctx.fillRect(centerX - width/6, centerY + height/12, width/3, height/20);
+            ctx.fillRect(centerX - width/6, centerY + height/8, 5, height/8);
+            ctx.fillRect(centerX + width/6 - 5, centerY + height/8, 5, height/8);
+            
+            // Stock
+            ctx.fillRect(centerX + width/3 - 20, centerY - height/8, 20, height/4);
+            
+            // Grip
+            ctx.fillRect(centerX - width/6, centerY, width/8, height/3);
+            
+            // Magazine/Belt feed
+            ctx.fillStyle = '#777';
+            ctx.fillRect(centerX, centerY + height/10, width/10, height/4);
+        }
+        
+        // Battle rifle silhouette
+        function drawBattleRifleSilhouette(ctx, centerX, centerY, width, height) {
+            // Main receiver
+            ctx.fillStyle = '#555';
+            ctx.fillRect(centerX - width/3, centerY - height/12, width * 0.8, height/6);
+            
+            // Barrel
+            ctx.fillRect(centerX - width/3 + 20, centerY - height/10, width * 0.6, height/5);
+            
+            // Stock
+            ctx.fillRect(centerX + width/3 - 20, centerY - height/8, 20, height/4);
+            
+            // Grip
+            ctx.fillRect(centerX - width/6, centerY, width/8, height/3);
+            
+            // Magazine
+            ctx.fillStyle = '#777';
+            ctx.fillRect(centerX, centerY + height/10, width/12, height/4);
+        }
+        
+        // Designated marksman rifle silhouette
+        function drawDMRSilhouette(ctx, centerX, centerY, width, height) {
+            // Similar to assault rifle but with scope
+            // Main receiver
+            ctx.fillStyle = '#555';
+            ctx.fillRect(centerX - width/3, centerY - height/12, width * 0.8, height/6);
+            
+            // Barrel
+            ctx.fillRect(centerX - width/3 + 20, centerY - height/10, width * 0.6, height/5);
+            
+            // Stock
+            ctx.fillRect(centerX + width/3 - 20, centerY - height/8, 20, height/4);
+            
+            // Grip
+            ctx.fillRect(centerX - width/6, centerY, width/8, height/3);
+            
+            // Scope
+            ctx.fillStyle = '#666';
+            ctx.fillRect(centerX - width/5, centerY - height/8, width/2.5, height/20);
+            
+            // Magazine
+            ctx.fillStyle = '#777';
+            ctx.fillRect(centerX, centerY + height/10, width/12, height/4);
+        }
+        
+        // Carbine silhouette
+        function drawCarbineSilhouette(ctx, centerX, centerY, width, height) {
+            // Shorter version of rifle
+            // Main receiver
+            ctx.fillStyle = '#555';
+            ctx.fillRect(centerX - width/4, centerY - height/12, width * 0.6, height/6);
+            
+            // Barrel
+            ctx.fillRect(centerX - width/4 + 15, centerY - height/10, width * 0.4, height/5);
+            
+            // Stock
+            ctx.fillRect(centerX + width/5 - 10, centerY - height/8, 10, height/4);
+            
+            // Grip
+            ctx.fillRect(centerX - width/8, centerY, width/10, height/3);
+            
+            // Magazine
+            ctx.fillStyle = '#777';
+            ctx.fillRect(centerX, centerY + height/10, width/15, height/4);
+        }
     </script>
 </body>
 </html>
