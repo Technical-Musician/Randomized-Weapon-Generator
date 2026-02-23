@@ -9,8 +9,8 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             padding: 20px;
             text-align: center;
-            background-color: #BD9037;
-            color: #f0f0f0;
+            background: linear-gradient(135deg, #2c3e50 0%, #1a251e 100%);
+            color: #e0dcc5;
             max-width: 1200px;
             margin: 0 auto;
         }
@@ -18,14 +18,17 @@
         h1 {
             font-size: 36px;
             margin-bottom: 10px;
-            color: #e0e0e0;
-            text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+            color: #f0e68c;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            font-weight: bold;
+            letter-spacing: 1px;
         }
 
         .subtitle {
             font-size: 16px;
-            color: #aaa;
+            color: #b0c4de;
             margin-bottom: 30px;
+            font-style: italic;
         }
 
         .generator-container {
@@ -39,29 +42,31 @@
         .control-panel {
             flex: 1;
             min-width: 300px;
-            background-color: #1a1a1a;
+            background: linear-gradient(to bottom, #3c4b5e 0%, #2c3746 100%);
             padding: 20px;
             border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+            border: 1px solid #5a6b7d;
         }
 
         .result-panel {
             flex: 2;
             min-width: 300px;
-            background-color: #434D18;
+            background: linear-gradient(to bottom, #2a3a2a 0%, #1a251e 100%);
             padding: 20px;
             border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.4);
             text-align: left;
+            border: 1px solid #4a5a4a;
         }
 
         select, button, input {
             padding: 10px 15px;
             font-size: 16px;
             margin: 10px 5px;
-            background-color: #333;
-            color: #f0f0f0;
-            border: none;
+            background: linear-gradient(to bottom, #4a5a6a 0%, #3a4a5a 100%);
+            color: #e0dcc5;
+            border: 1px solid #6a7a8a;
             border-radius: 5px;
             width: 100%;
             box-sizing: border-box;
@@ -74,23 +79,27 @@
         }
 
         button:hover {
-            background-color: #555;
+            background: linear-gradient(to bottom, #5a6a7a 0%, #4a5a6a 100%);
         }
 
         button:active {
             transform: scale(0.98);
+            background: linear-gradient(to bottom, #3a4a5a 0%, #4a5a6a 100%);
         }
 
         .generate-btn {
-            background-color: #4CAF50;
+            background: linear-gradient(to bottom, #3a5a3a 0%, #2a4a2a 100%);
+            border: 1px solid #5a7a5a;
         }
 
         .randomize-btn {
-            background-color: #2196F3;
+            background: linear-gradient(to bottom, #2a5a7a 0%, #1a4a6a 100%);
+            border: 1px solid #4a7a9a;
         }
 
         .export-btn {
-            background-color: #FF9800;
+            background: linear-gradient(to bottom, #7a5a2a 0%, #6a4a1a 100%);
+            border: 1px solid #9a7a4a;
         }
 
         label {
@@ -107,18 +116,19 @@
         }
 
         .weapon-card {
-            background-color: #252525;
+            background: linear-gradient(to bottom, #3a4a5a 0%, #2a3a4a 100%);
             padding: 20px;
             border-radius: 10px;
             margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            border: 1px solid #5a6a7a;
         }
 
         .weapon-name {
             font-size: 24px;
             margin-bottom: 15px;
-            color: #e0e0e0;
-            border-bottom: 1px solid #444;
+            color: #f0e68c;
+            border-bottom: 1px solid #6a7a8a;
             padding-bottom: 10px;
         }
 
@@ -129,39 +139,42 @@
         }
 
         .stat-item {
-            background-color: #333;
+            background: linear-gradient(to bottom, #4a5a6a 0%, #3a4a5a 100%);
             padding: 10px;
             border-radius: 5px;
+            border: 1px solid #6a7a8a;
         }
 
         .stat-label {
             font-weight: bold;
-            color: #aaa;
+            color: #b0c4de;
             font-size: 14px;
         }
 
         .stat-value {
             font-size: 16px;
             margin-top: 5px;
+            color: #e0dcc5;
         }
 
         .weapon-image {
             width: 100%;
             height: 200px;
-            background-color: #333;
+            background: linear-gradient(to bottom, #3a4a5a 0%, #2a3a4a 100%);
             border-radius: 5px;
             margin: 15px 0;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #777;
+            color: #7a8a9a;
             font-style: italic;
+            border: 1px solid #5a6a7a;
         }
 
         .weapon-description {
             margin-top: 15px;
             font-style: italic;
-            color: #ccc;
+            color: #d0d0bd;
             line-height: 1.5;
         }
 
@@ -171,16 +184,17 @@
         }
 
         .history-item {
-            background-color: #252525;
+            background: linear-gradient(to bottom, #3a4a5a 0%, #2a3a4a 100%);
             padding: 15px;
             margin: 10px 0;
             border-radius: 5px;
             cursor: pointer;
-            transition: background-color 0.3s;
+            transition: background 0.3s;
+            border: 1px solid #5a6a7a;
         }
 
         .history-item:hover {
-            background-color: #2a2a2a;
+            background: linear-gradient(to bottom, #4a5a6a 0%, #3a4a5a 100%);
         }
 
         .tab-container {
@@ -195,21 +209,25 @@
         .tab {
             padding: 10px 20px;
             cursor: pointer;
-            background-color: #2a2a2a;
+            background: linear-gradient(to bottom, #3a4a5a 0%, #2a3a4a 100%);
             border-radius: 5px 5px 0 0;
             margin-right: 5px;
+            border: 1px solid #5a6a7a;
+            color: #e0dcc5;
         }
 
         .tab.active {
-            background-color: #333;
-            border-bottom: 2px solid #4CAF50;
+            background: linear-gradient(to bottom, #4a5a6a 0%, #3a4a5a 100%);
+            border-bottom: 2px solid #6a8a6a;
         }
 
         .tab-content {
             display: none;
             padding: 20px;
-            background-color: #1a1a1a;
+            background: linear-gradient(to bottom, #2a3a4a 0%, #1a2a3a 100%);
             border-radius: 0 0 5px 5px;
+            border: 1px solid #4a5a6a;
+            border-top: none;
         }
 
         .tab-content.active {
