@@ -541,9 +541,82 @@
         // Function to generate random caliber based on weapon class
         function generateCaliber(classType) {
             const limits = caliberLimits[classType];
-            const width = getRandomInRange(limits.minWidth, limits.maxWidth, 2);
+            // Generate width that always ends in an even hundredth (x.32, x.34, x.36, etc.)
+            const range = limits.maxWidth - limits.minWidth;
+            // Generate a random value that's a multiple of 0.02 (to ensure even hundredths)
+            const steps = Math.floor(range / 0.02);
+            const width = (Math.floor(Math.random() * (steps + 1)) * 0.02 + limits.minWidth).toFixed(2);
             const length = Math.floor(Math.random() * (limits.maxLength - limits.minLength) + limits.minLength);
             return `${width}x${length}mm`;
+        }
+
+        // Function to calculate bullet weight in grains based on caliber dimensions
+        function calculateBulletWeight(caliber) {
+            // Parse caliber to get width (diameter) and length
+            const parts = caliber.split('x');
+            const diameterMM = parseFloat(parts[0]);
+            const lengthMM = parseInt(parts[1].replace('mm', ''));
+            
+            // Calculate volume assuming cylindrical shape (in mm^3)
+            const radius = diameterMM / 2;
+            const volumeMM3 = Math.PI * radius * radius * lengthMM;
+            
+            // Convert to cubic inches since density is in lbs/in^3
+            const volumeIn3 = volumeMM3 / 16387.064;
+            
+            // Lead density in lbs/in^3 (standard for bullets)
+            const leadDensity = 0.409; // lbs/in^3
+            
+            // Calculate weight in pounds then convert to grains (1 lb = 7000 grains)
+            const weightGrains = (volumeIn3 * leadDensity) * 7000;
+            
+            // Return rounded to nearest 5 grains for realistic values
+            return Math.round(weightGrains / 5) * 5;
+        }
+
+        // Function to calculate muzzle velocity based on barrel length and bullet weight
+        function calculateMuzzleVelocity(caliber, barrelLength, bulletWeight) {
+            // Parse barrel length to get numeric value
+            const lengthValue = parseInt(barrelLength.replace(' inches', ''));
+            
+            // Base velocity factors based on caliber width (diameter)
+            const caliberParts = caliber.split('x');
+            const caliberWidth = parseFloat(caliberParts[0]);
+            
+            // Calculate base velocity based on caliber (larger calibers generally have higher energy)
+            // Using a formula that accounts for powder efficiency and caliber size
+            let baseVelocity;
+            if (caliberWidth <= 0.30) {
+                baseVelocity = 2800; // Smaller calibers like 5.56mm, .308
+            } else if (caliberWidth <= 0.45) {
+                baseVelocity = 2500; // Medium calibers like .45 ACP, 7.62mm
+            } else {
+                baseVelocity = 2200; // Larger calibers like .50 BMG, 12ga
+            }
+            
+            // Adjust velocity based on barrel length (longer barrels typically increase velocity)
+            // For every inch above 10 inches, increase velocity by ~50 fps for rifles
+            // For shorter barrels (like pistols), decrease velocity
+            let barrelEffect = (lengthValue - 10) * 50;
+            
+            // Apply different barrel effects based on weapon class (pistols vs rifles)
+            if (lengthValue < 6) {
+                barrelEffect = (lengthValue - 6) * 40; // Pistols with very short barrels
+            } else if (lengthValue < 12) {
+                barrelEffect = (lengthValue - 10) * 30; // Carbines/pistols
+            } else {
+                barrelEffect = (lengthValue - 10) * 50; // Rifles
+            }
+            
+            // Adjust for bullet weight (heavier bullets may have lower velocity)
+            // Using inverse relationship: heavier bullets might be slower
+            const weightFactor = 1 - ((bulletWeight - 150) / 500); // Adjust based on 150gr baseline
+            
+            // Calculate final velocity
+            const velocity = (baseVelocity + barrelEffect) * weightFactor;
+            
+            // Ensure minimum velocity (no negative or zero values)
+            return Math.max(800, Math.round(velocity));
         }
 
         // Function to generate magazine capacity
@@ -682,6 +755,8 @@
             text += `FACTION: ${weaponData.faction}\n`;
             text += `RARITY: ${weaponData.rarity}\n`;
             text += `CALIBER: ${weaponData.caliber}\n`;
+            text += `BULLET WEIGHT: ${weaponData.bulletWeight} grains\n`;
+            text += `MUZZLE VELOCITY: ${weaponData.muzzleVelocity} fps\n`;
             text += `WEIGHT: ${weaponData.weight} kg\n`;
             text += `BARREL LENGTH: ${weaponData.barrelLength}\n`;
             text += `MAGAZINE CAPACITY: ${weaponData.magazineCapacity} rounds\n`;
@@ -831,13 +906,15 @@
             // Generate weapon attributes
             const name = customName || generateWeaponName(faction, weaponClass, rarity);
             const caliber = generateCaliber(weaponClass);
+            const bulletWeight = calculateBulletWeight(caliber);
+            const barrelLength = getRandomItem(barrelLengths[weaponClass]);
+            const muzzleVelocity = calculateMuzzleVelocity(caliber, barrelLength, bulletWeight);
             const magazineCapacity = generateMagazineCapacity(weaponClass);
             const weight = generateWeaponWeight(weaponClass);
             const effectiveRange = generateEffectiveRange(weaponClass);
             const attachmentMethod = getRandomItem(attachmentMethods[era]);
             const actionType = getRandomItem(actionTypes[weaponClass]);
             const fireRate = getRandomItem(fireRates[weaponClass]);
-            const barrelLength = getRandomItem(barrelLengths[weaponClass]);
             const feedingMechanism = getRandomItem(feedingMechanisms[weaponClass]);
             const furnitureMaterial = getRandomItem(furnitureMaterials[era]);
             const selectedFiringModes = getRandomItem(firingModes[era]);
@@ -858,6 +935,8 @@
                 faction,
                 rarity,
                 caliber,
+                bulletWeight,
+                muzzleVelocity,
                 weight,
                 effectiveRange,
                 magazineCapacity,
@@ -907,6 +986,14 @@
                         <div class="stat-item">
                             <div class="stat-label">Caliber</div>
                             <div class="stat-value">${weaponData.caliber}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Bullet Weight</div>
+                            <div class="stat-value">${weaponData.bulletWeight} grains</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Muzzle Velocity</div>
+                            <div class="stat-value">${weaponData.muzzleVelocity} fps</div>
                         </div>
                         <div class="stat-item">
                             <div class="stat-label">Weight</div>
