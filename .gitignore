@@ -1,1 +1,21 @@
-(index.html is a source file, so according to rule 6, since there are no build artifacts, dependencies, or temp files in the changes, the output should be empty)
+```
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+
+# Dependencies
+node_modules/
+venv/
+.venv/
+.env
+.env.local
+*.env.*
+
+# Editors
+.vscode/
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+```
