@@ -541,7 +541,11 @@
         // Function to generate random caliber based on weapon class
         function generateCaliber(classType) {
             const limits = caliberLimits[classType];
-            const width = getRandomInRange(limits.minWidth, limits.maxWidth, 2);
+            // Generate width that always ends in an even hundredth (x.32, x.34, x.36, etc.)
+            const range = limits.maxWidth - limits.minWidth;
+            // Generate a random value that's a multiple of 0.02 (to ensure even hundredths)
+            const steps = Math.floor(range / 0.02);
+            const width = (Math.floor(Math.random() * (steps + 1)) * 0.02 + limits.minWidth).toFixed(2);
             const length = Math.floor(Math.random() * (limits.maxLength - limits.minLength) + limits.minLength);
             return `${width}x${length}mm`;
         }
